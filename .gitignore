@@ -1,0 +1,22 @@
+# Virtual Environments
+.venv/
+venv/
+env/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environment Variables
+.env
+
+# IDEs
+.vscode/
+.idea/
+
+# Gurobi logs
+gurobi.log
+
+# OS specific
+.DS_Store
