@@ -1,6 +1,9 @@
 import httpx
 from os import getenv
 from datetime import datetime, timezone
+import json
+import heapq
+
 
 class TfL_Request:
     def __init__(self):
@@ -9,6 +12,8 @@ class TfL_Request:
         self._tube_closures_cache = {}
         self._station_coords_cache = {}
         self._journey_times_cache = {}
+        with open("app/data/station_times.json", "r") as file:
+            self._station_run_times = json.load(file)
 
     def _is_cached(self, cache_dict: dict, cache_name: str) -> bool:
         # Check that the cache exists. If it doesn't, the object has likely not been initialized.
@@ -106,6 +111,80 @@ class TfL_Request:
         coordinates = (station_info["lat"], station_info["lon"])
         self._station_coords_cache[station_id]= coordinates
         return coordinates
+    
+    def get_run_time(self, station_from: str, station_to: str):
+        # Find the run time in the station times data
+        for entry in self._station_run_times:
+            if entry["station_from_naptan"] == station_from and entry["station_to_naptan"] == station_to:
+                return entry["run_time"]
+        
+        raise KeyError(f"No run time found for stations {station_from} to {station_to}")
+    
+    def _build_graph(self):
+        if hasattr(self, '_graph'):
+            return self._graph
+        graph = {}  # station -> list of (to_station, run_time, line)
+        for entry in self._station_run_times:
+            from_s = entry['station_from_naptan']
+            to_s = entry['station_to_naptan']
+            rt = entry['run_time']
+            line = entry['line']
+            if from_s not in graph:
+                graph[from_s] = []
+            graph[from_s].append((to_s, rt, line))
+        self._graph = graph
+        return graph
+    
+    def get_all_stations(self):
+        graph = self._build_graph()
+        return list(graph.keys())
+    
+    def get_journey_time_with_penalty(self, from_station, to_station):
+        graph = self._build_graph()
+        # Dijkstra with line change penalty baked into the cost
+        # State: (station, current_line) where current_line is the line we arrived on
+        dist = {(from_station, None): 0}
+        prev = {(from_station, None): None}
+        prev_line = {(from_station, None): None}
+        pq = [(0, from_station, None)]  # (cost, station, line_we_came_on)
+        
+        while pq:
+            d, u, current_line = heapq.heappop(pq)
+            state = (u, current_line)
+            
+            if u == to_station:
+                # Reconstruct path
+                path = []
+                edges = []
+                s = state
+                while s is not None:
+                    path.append(s[0])
+                    if prev_line[s] is not None:
+                        edges.append(prev_line[s])
+                    s = prev[s]
+                path.reverse()
+                edges.reverse()
+                return d, path
+            
+            if d > dist.get(state, float('inf')):
+                continue
+            
+            for v, rt, line in graph.get(u, []):
+                # Cost is travel time + penalty if we're changing lines
+                cost_add = rt
+                if current_line is not None and line != current_line:
+                    cost_add += 5  # penalty for line change
+                
+                alt = d + cost_add
+                next_state = (v, line)
+                
+                if alt < dist.get(next_state, float('inf')):
+                    dist[next_state] = alt
+                    prev[next_state] = state
+                    prev_line[next_state] = line
+                    heapq.heappush(pq, (alt, v, line))
+        
+        raise KeyError(f"No path from {from_station} to {to_station}")
 
 
 if __name__ == "__main__":
@@ -118,3 +197,6 @@ if __name__ == "__main__":
 
     print(x.get_station_coords("940GZZLUUXB"))
     print(x.get_station_coords("940GZZLUUXB"))
+
+    print(x.get_run_time("940GZZLUHAW", "940GZZLUKEN"))
+    print(x.get_run_time("940GZZLUHAW", "940GZZLUKEN"))
