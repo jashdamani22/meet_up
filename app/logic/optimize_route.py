@@ -10,6 +10,14 @@ class OptimizeRoute:
         self.tfl = TflRequest()
         self.restaurant_finder = RestaurantFinder(self.tfl)
         self.all_stations = self.tfl.get_all_stations()
+        
+        # Get current closed stations
+        closures_info = self.tfl.get_tube_closures()
+        # Extract closed station IDs (exclude 'timestamp' key)
+        self.closed_stations = set(
+            station_id for station_id in closures_info.keys()
+            if station_id != 'timestamp'
+        )
 
     def optimize(self, start_stations, objective='total_time', poi_constraint=None):
         """
@@ -22,7 +30,7 @@ class OptimizeRoute:
                 - 'type': Type of POI ('restaurant', 'pub', 'park', 'cafe', etc.)
                 - 'min_count': Minimum number of POIs required (default: 5)
                 - 'min_rating': Minimum rating filter (default: 3.0)
-                - 'max_distance': Maximum walking distance in meters (default: 750)
+                - 'max_distance': Maximum walking distance in meters (default: 500)
                 
         Returns:
             Dict with results including destination station and routes
@@ -242,6 +250,11 @@ class OptimizeRoute:
         # Exclude stations that didn't meet previous constraints
         for excluded in excluded_stations:
             model.addConstr(d_vars[excluded] == 0)
+        
+        # Exclude closed stations from being chosen as destination
+        for closed_station in self.closed_stations:
+            if closed_station in self.all_stations:
+                model.addConstr(d_vars[closed_station] == 0)
         
         # Set objective based on optimization type
         if objective == 'total_time':

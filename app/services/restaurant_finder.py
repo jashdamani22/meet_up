@@ -2,7 +2,6 @@ import httpx
 from os import getenv
 from typing import Optional, List, Dict
 from dotenv import load_dotenv
-import time
 
 
 class RestaurantFinder:
@@ -50,7 +49,7 @@ class RestaurantFinder:
         self,
         poi_type: str,
         station_id: str,
-        max_distance: float = 750.0,
+        max_distance: float = 500.0,
         min_rating: float = 3.0
     ) -> int:
         """
@@ -59,7 +58,7 @@ class RestaurantFinder:
         Args:
             poi_type: Type of POI (e.g., 'restaurant', 'pub', 'park', 'cafe', 'bar')
             station_id: The tube station ID (naptan code)
-            max_distance: Maximum walking distance in meters (default 750m)
+            max_distance: Maximum walking distance in meters (default 500m)
             min_rating: Minimum rating filter (default 3.0 stars)
         
         Returns:
@@ -94,12 +93,11 @@ class RestaurantFinder:
         
         return filtered_count
     
-    def _search_nearby_places(self, lat: float, lon: float, poi_type: str, radius: float = 750.0) -> List[Dict]:
+    def _search_nearby_places(self, lat: float, lon: float, poi_type: str, radius: float = 500.0) -> List[Dict]:
         """
         Search for places near a location using Google Maps Nearby Search API.
         
-        Uses pagination to retrieve up to 60 results (3 pages x 20 results).
-        Uses caching to minimize API calls. Results are cached by location, type, and radius.
+        Retrieves up to 20 results (single page). Results are cached by location, type, and radius.
         
         Args:
             lat: Latitude of the center point
@@ -108,7 +106,7 @@ class RestaurantFinder:
             radius: Search radius in meters
         
         Returns:
-            A list of place data dictionaries containing place information
+            A list of place data dictionaries containing place information (max 20)
             
         Raises:
             ValueError: If poi_type is not supported or API returns an error
@@ -125,64 +123,34 @@ class RestaurantFinder:
         # Map poi_type to Google Maps type
         google_type = self._map_poi_type_to_google_type(poi_type)
         
-        # Make API request to Google Maps Nearby Search with pagination
+        # Make API request to Google Maps Nearby Search
         url = "https://maps.googleapis.com/maps/api/place/nearbysearch/json"
-        all_places = []
-        next_page_token = None
-        page_count = 0
-        max_pages = 3  # Google Maps allows up to 3 pages (60 results max)
+        params = {
+            "location": f"{lat},{lon}",
+            "radius": int(radius),
+            "type": google_type,
+            "key": self.google_maps_api_key
+        }
         
         try:
-            while page_count < max_pages:
-                params = {
-                    "location": f"{lat},{lon}",
-                    "radius": int(radius),
-                    "type": google_type,
-                    "key": self.google_maps_api_key
-                }
-                
-                # Add page token if this is not the first request
-                if next_page_token:
-                    params["pagetoken"] = next_page_token
-                
-                response = httpx.get(url, params=params)
-                response.raise_for_status()
-                data = response.json()
-                
-                # Check for API errors
-                status = data.get("status")
-                if status == "INVALID_REQUEST":
-                    # This can happen if pagetoken is used too quickly, wait a bit
-                    if next_page_token and page_count == 1:
-                        print("Waiting for next_page_token to become valid...")
-                        time.sleep(2)
-                        continue
-                
-                if status != "OK":
-                    error_msg = data.get("error_message", "Unknown error")
-                    raise ValueError(f"Google Maps API error: {status} - {error_msg}")
-                
-                places = data.get("results", [])
-                all_places.extend(places)
-                
-                # Check if there are more results
-                next_page_token = data.get("next_page_token")
-                if not next_page_token:
-                    break
-                
-                page_count += 1
-                
-                # Google Maps recommends waiting before using next_page_token
-                if page_count < max_pages:
-                    print(f"Retrieved {len(places)} places (page {page_count}), fetching next page...")
-                    time.sleep(2)
+            response = httpx.get(url, params=params)
+            response.raise_for_status()
+            data = response.json()
+            
+            # Check for API errors
+            status = data.get("status")
+            if status != "OK":
+                error_msg = data.get("error_message", "Unknown error")
+                raise ValueError(f"Google Maps API error: {status} - {error_msg}")
+            
+            places = data.get("results", [])
             
             # Cache the results
-            self._places_cache[places_cache_key] = all_places
+            self._places_cache[places_cache_key] = places
             
-            print(f"Retrieved {len(all_places)} total places from Google Maps API ({page_count + 1} page(s))")
+            print(f"Retrieved {len(places)} places from Google Maps API")
             
-            return all_places
+            return places
         
         except httpx.HTTPError as e:
             raise RuntimeError(f"HTTP error when querying Google Maps API: {e}")
@@ -245,7 +213,7 @@ if __name__ == "__main__":
     try:
         station_id = "940GZZLUKSX"  # King's Cross St Pancras
         count = finder.find_poi("restaurant", station_id)
-        print(f"Found {count} restaurants with rating >= 3.0 within 750m")
+        print(f"Found {count} restaurants with rating >= 3.0 within 500m")
     except Exception as e:
         print(f"Error: {e}")
     
@@ -253,7 +221,7 @@ if __name__ == "__main__":
     print("\nTest 2: Same search (should use cache)")
     try:
         count = finder.find_poi("restaurant", station_id)
-        print(f"Found {count} restaurants with rating >= 3.0 within 750m")
+        print(f"Found {count} restaurants with rating >= 3.0 within 500m")
     except Exception as e:
         print(f"Error: {e}")
     
@@ -277,7 +245,7 @@ if __name__ == "__main__":
     print("\nTest 5: Finding parks with default parameters")
     try:
         count = finder.find_poi("park", station_id)
-        print(f"Found {count} parks with rating >= 3.0 within 750m")
+        print(f"Found {count} parks with rating >= 3.0 within 500m")
     except Exception as e:
         print(f"Error: {e}")
     
@@ -285,7 +253,7 @@ if __name__ == "__main__":
     print("\nTest 6: Same park search (should use cache)")
     try:
         count = finder.find_poi("park", station_id)
-        print(f"Found {count} parks with rating >= 3.0 within 750m")
+        print(f"Found {count} parks with rating >= 3.0 within 500m")
     except Exception as e:
         print(f"Error: {e}")
     
