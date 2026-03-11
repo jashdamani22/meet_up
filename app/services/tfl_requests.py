@@ -189,6 +189,79 @@ class TflRequest:
                     heapq.heappush(pq, (alt, v, line))
         
         raise KeyError(f"No path from {from_station} to {to_station}")
+    
+    def get_line_segments(self, path: list) -> list:
+        """
+        Get the line segments for a given path.
+        
+        Args:
+            path: List of station IDs representing the journey path
+            
+        Returns:
+            List of dicts with keys: 'line', 'from_station', 'to_station', 'from_index', 'to_index'
+            Each dict represents a continuous segment on a single line.
+        """
+        if not path or len(path) < 2:
+            return []
+        
+        graph = self._build_graph()
+        segments = []
+        current_line = None
+        segment_start_idx = 0
+        
+        for i in range(len(path) - 1):
+            from_station = path[i]
+            to_station = path[i + 1]
+            
+            # Find the line connecting these stations
+            # Prefer to continue on the current line if possible
+            line = None
+            if from_station in graph:
+                # First, check if current line can continue
+                if current_line is not None:
+                    for next_station, run_time, line_name in graph[from_station]:
+                        if next_station == to_station and line_name == current_line:
+                            line = line_name
+                            break
+                
+                # If current line doesn't continue, find any line that connects these stations
+                if line is None:
+                    for next_station, run_time, line_name in graph[from_station]:
+                        if next_station == to_station:
+                            line = line_name
+                            break
+            
+            if line is None:
+                # If we can't find the line, skip this leg
+                continue
+            
+            # Check if we need to start a new segment (line change)
+            if line != current_line:
+                # Save the previous segment
+                if current_line is not None and segment_start_idx < i:
+                    segments.append({
+                        'line': current_line,
+                        'from_station': path[segment_start_idx],
+                        'to_station': path[i],
+                        'from_index': segment_start_idx,
+                        'to_index': i
+                    })
+                
+                # Start a new segment
+                current_line = line
+                segment_start_idx = i
+        
+        # Add the final segment
+        if current_line is not None:
+            segments.append({
+                'line': current_line,
+                'from_station': path[segment_start_idx],
+                'to_station': path[-1],
+                'from_index': segment_start_idx,
+                'to_index': len(path) - 1
+            })
+        
+        return segments
 
 
 if __name__ == "__main__":

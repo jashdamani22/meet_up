@@ -137,8 +137,14 @@ class RestaurantFinder:
             response.raise_for_status()
             data = response.json()
             
-            # Check for API errors
+            # Check for API status
             status = data.get("status")
+            if status == "ZERO_RESULTS":
+                # No results found - this is not an error, just return empty list
+                print(f"No places found for {poi_type} within {int(radius)}m")
+                self._places_cache[places_cache_key] = []
+                return []
+            
             if status != "OK":
                 error_msg = data.get("error_message", "Unknown error")
                 raise ValueError(f"Google Maps API error: {status} - {error_msg}")

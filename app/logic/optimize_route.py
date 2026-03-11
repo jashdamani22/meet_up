@@ -193,11 +193,16 @@ class OptimizeRoute:
                 raise ValueError("No feasible station found")
             
             # Check if this station meets POI requirements
-            poi_count = self.restaurant_finder.find_poi(
-                poi_type, best_d,
-                max_distance=max_distance,
-                min_rating=min_rating
-            )
+            try:
+                poi_count = self.restaurant_finder.find_poi(
+                    poi_type, best_d,
+                    max_distance=max_distance,
+                    min_rating=min_rating
+                )
+            except Exception as e:
+                # If there's any error checking POI (API error, etc.), treat as 0 POIs found
+                print(f"Error checking POI for station {best_d}: {e}. Treating as 0 POIs.")
+                poi_count = 0
             
             if poi_count >= min_count:
                 # Feasible solution found!
