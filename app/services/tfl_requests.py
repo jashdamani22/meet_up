@@ -3,9 +3,10 @@ from os import getenv
 from datetime import datetime, timezone
 import json
 import heapq
+from dotenv import load_dotenv
 
 
-class TfL_Request:
+class TflRequest:
     def __init__(self):
         # Initialize cache dictionaries. These will help avoid unecessary API calls
         self._tube_status_cache = {}
@@ -14,10 +15,13 @@ class TfL_Request:
         self._journey_times_cache = {}
         with open("app/data/station_times.json", "r") as file:
             self._station_run_times = json.load(file)
+        # Load environment variables from .env file
+        load_dotenv()
+        self._TFL_API_KEY = getenv("TFL_API_KEY")
 
     def _is_cached(self, cache_dict: dict, cache_name: str) -> bool:
         # Check that the cache exists. If it doesn't, the object has likely not been initialized.
-        assert cache_dict is not None, f"No cache for {cache_name} has been initialized. Check that the TfL_Request object has been instantiated properly."
+        assert cache_dict is not None, f"No cache for {cache_name} has been initialized. Check that the TflRequest object has been instantiated properly."
         
         # If a cached copy of the desired dict exists and is less than 60 seconds old, 
         if "timestamp" in cache_dict:
@@ -35,7 +39,7 @@ class TfL_Request:
             return self._tube_status_cache
 
         # Make GET request to TfL API for all status information for tube lines
-        r = httpx.get(f"https://api.tfl.gov.uk/Line/Mode/tube/Status?app_key={getenv("TFL_API_KEY")}")
+        r = httpx.get(f"https://api.tfl.gov.uk/Line/Mode/tube/Status?app_key={self._TFL_API_KEY}")
         r.raise_for_status()
 
         # Present the data more neatly
@@ -60,7 +64,7 @@ class TfL_Request:
             return self._tube_closures_cache
         
          # Make GET request to TfL API for all tube closures
-        r = httpx.get(f"https://api.tfl.gov.uk/StopPoint/Mode/tube/Disruption?app_key={getenv("TFL_API_KEY")}")
+        r = httpx.get(f"https://api.tfl.gov.uk/StopPoint/Mode/tube/Disruption?app_key={self._TFL_API_KEY}")
         r.raise_for_status()
 
         tube_closures = {}
@@ -101,7 +105,7 @@ class TfL_Request:
         print(f"Cache miss for station {station_id}!")
         
         # Make GET request to TfL API for tube station details
-        r = httpx.get(f"https://api.tfl.gov.uk/StopPoint/{station_id}?app_key={getenv("TFL_API_KEY")}")
+        r = httpx.get(f"https://api.tfl.gov.uk/StopPoint/{station_id}?app_key={self._TFL_API_KEY}")
         r.raise_for_status()
 
         station_info = r.json()
@@ -188,7 +192,7 @@ class TfL_Request:
 
 
 if __name__ == "__main__":
-    x = TfL_Request()
+    x = TflRequest()
     print(x.get_line_status())
     print(x.get_line_status())
 

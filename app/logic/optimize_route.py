@@ -2,11 +2,11 @@ import sys, os
 # ensure workspace root is on path for direct execution
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..')))
 import gurobipy as gp
-from app.services.tfl_requests import TfL_Request
+from app.services.tfl_requests import TflRequest
 
 class OptimizeRoute:
     def __init__(self):
-        self.tfl = TfL_Request()
+        self.tfl = TflRequest()
         self.all_stations = self.tfl.get_all_stations()
 
     def optimize(self, start_stations):

@@ -9,5 +9,6 @@ dependencies = [
     "gurobipy>=13.0.1",
     "httpx>=0.28.1",
     "pandas>=3.0.1",
+    "python-dotenv>=1.2.2",
     "requests>=2.32.5",
 ]
