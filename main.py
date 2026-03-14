@@ -12,7 +12,7 @@ from app.logic.optimize_route import OptimizeRoute
 
 # Configure Streamlit page
 st.set_page_config(
-    page_title="Meetup Optimizer",
+    page_title="Station Solver",
     page_icon="🚇",
     layout="wide",
     initial_sidebar_state="collapsed"
@@ -76,8 +76,8 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Title and description
-st.title("🚇 London Tube Meeting Point Optimizer")
-st.markdown("Find the optimal tube station for your group to meet!")
+st.title("Station Solver")
+st.markdown("*Find the best tube station to meet your friends*")
 
 # Initialize session state
 @st.cache_resource
@@ -151,8 +151,8 @@ def main():
     st.markdown("---")
     
     # Section: Starting Stations
-    st.header("📍 Starting Stations")
-    st.markdown("Select the tube stations where your group members are starting from.")
+    st.header("Starting Stations")
+    st.markdown("*Select the tube stations where your group members are starting from*")
     
     # Initialize session state for starting stations
     if 'num_starting_stations' not in st.session_state:
@@ -179,20 +179,20 @@ def main():
             
             # Delete button (only show if more than 2 stations)
             with col2:
-                if st.session_state.num_starting_stations > 2 and st.button("🗑️", key=f"delete_{idx}", help="Remove this station"):
+                if st.session_state.num_starting_stations > 2 and st.button("X", key=f"delete_{idx}", help="Remove this station"):
                     st.session_state.num_starting_stations -= 1
                     st.rerun()
     
     # Add station button
-    if st.button("➕ Add another starting station", use_container_width=True):
+    if st.button("+ starting station", use_container_width=True):
         st.session_state.num_starting_stations += 1
         st.rerun()
     
     st.markdown("---")
     
     # Section: Maps Constraint (Optional)
-    st.header("🎯 Choose an Activity")
-    st.markdown("(Optional) Find a location with nearby places of interest")
+    st.header("Choose an Activity")
+    st.markdown("*(Optional) Find a station with places of interes nearby*")
     
     # Initialize maps constraint session state
     if 'enable_poi_constraint' not in st.session_state:
@@ -218,7 +218,7 @@ def main():
                 key="poi_type"
             )
         
-        with st.expander("⚙️ Advanced Settings"):
+        with st.expander("Customise "):
             col1, col2, col3 = st.columns(3)
             
             with col1:
@@ -259,22 +259,22 @@ def main():
     st.markdown("---")
     
     # Section: Run Optimization
-    st.header("🚀 Run Optimization")
+    st.header("Solver")
     
     col1, col2 = st.columns([3, 1])
     with col1:
-        st.markdown("Click the button below to find the optimal meeting station for your group.")
+        st.markdown("*Click the button below to find the optimal meeting station for your group*")
     
     with col2:
-        run_button = st.button("Find Optimal Station", use_container_width=True, type="primary")
+        run_button = st.button("Go!", use_container_width=True, type="primary")
     
     # Run optimization
     if run_button:
         # Validate inputs
         if not all(selected_stations):
-            st.error("❌ Please select all starting stations")
+            st.error("Please select all starting stations...")
         else:
-            with st.spinner("🔄 Optimizing... This may take a moment..."):
+            with st.spinner("Looking for the best station..."):
                 try:
                     # Run both optimizations
                     result_total_time = optimizer.optimize(
@@ -296,15 +296,15 @@ def main():
                     st.session_state.station_names = station_names
                     
                 except ValueError as e:
-                    st.error(f"❌ Optimization failed: {str(e)}")
+                    st.error(f"Optimisation failed: {str(e)}")
                 except Exception as e:
-                    st.error(f"❌ An error occurred: {str(e)}")
+                    st.error(f"An error occurred: {str(e)}")
     
     st.markdown("---")
     
     # Display Results
     if 'result_total_time' in st.session_state:
-        st.header("✅ Results")
+        st.header("Results")
         
         result_total = st.session_state.result_total_time
         result_var = st.session_state.result_variance
@@ -315,15 +315,15 @@ def main():
         dest_variance = result_var['destination']
         
         # Display optimal stations
-        st.markdown("### 🎯 Optimal Meeting Stations")
+        st.markdown("### Optimal Meeting Stations")
         
         if dest_total == dest_variance:
             # Same station for both objectives
             st.markdown(f"""
             <div class="result-container">
-                <h3 style="margin: 0;">Overall Optimal Station</h3>
+                <h3 style="margin: 0;">Best Station</h3>
                 <h2 style="color: #0066cc; margin: 10px 0;">{station_names.get(dest_total, dest_total)}</h2>
-                <p style="margin: 0;">✓ Optimal for both minimum total travel time and fairness (minimum variance)</p>
+                <p style="margin: 0;">The fastest and fairest station to meet at</p>
             </div>
             """, unsafe_allow_html=True)
         else:
@@ -333,18 +333,18 @@ def main():
             with col1:
                 st.markdown(f"""
                 <div class="result-container">
-                    <h3 style="margin: 0;">⚡ Fastest Option</h3>
+                    <h3 style="margin: 0;">Fastest Station</h3>
                     <h2 style="color: #0066cc; margin: 10px 0;">{station_names.get(dest_total, dest_total)}</h2>
-                    <p style="margin: 0;">Minimizes total travel time</p>
+                    <p style="margin: 0;">Lowest total travel time</p>
                 </div>
                 """, unsafe_allow_html=True)
             
             with col2:
                 st.markdown(f"""
                 <div class="result-container">
-                    <h3 style="margin: 0;">⚖️ Fairest Option</h3>
+                    <h3 style="margin: 0;">Fairest Station</h3>
                     <h2 style="color: #0066cc; margin: 10px 0;">{station_names.get(dest_variance, dest_variance)}</h2>
-                    <p style="margin: 0;">Minimizes travel time variance</p>
+                    <p style="margin: 0;">Most equal travel times</p>
                 </div>
                 """, unsafe_allow_html=True)
         
@@ -358,7 +358,7 @@ def main():
             results_to_show["Fairest"] = result_var
         
         for option_name, result in results_to_show.items():
-            st.markdown(f"### {option_name} Option - Journey Details")
+            st.markdown(f"### {option_name} Journey: Details")
             
             destination = result['destination']
             routes = result['routes']
@@ -412,7 +412,7 @@ def main():
                 st.markdown(f"""
                 <div class="journey-card">
                     <strong>Person {j_info['idx'] + 1}: {start_name} → {end_name}</strong><br>
-                    <strong>Estimated time: {j_info['time']:.1f} minutes</strong>
+                    <strong>Estimated travel time: {j_info['time']:.1f} minutes</strong>
                 </div>
                 """, unsafe_allow_html=True)
                 
@@ -432,14 +432,20 @@ def main():
                         # Color code based on status
                         if 'Good Service' in status_display:
                             status_color = '#28a745'  # Green
-                            status_emoji = '✅'
+                            status_emoji = ''
+                        elif 'Closure' in status_display:
+                            status_color = "#d13737"  # Green
+                            status_emoji = '❌'
                         else:
                             status_color = '#ffc107'  # Yellow/Orange
                             status_emoji = '⚠️'
                         
+
+                        #                            {from_name} <span style="color: #0066cc; font-weight: bold;">→ {line_name} → </span> {to_name}<br>
                         st.markdown(f"""
                         <div style="margin-left: 20px; padding: 8px; border-left: 3px solid {status_color};">
-                            📍 {from_name} <span style="color: #0066cc; font-weight: bold;">→ {line_name} → </span> {to_name}<br>
+                            <span style="color: #0066cc; font-weight: bold;">{line_name} Line</span> <br>
+                            {from_name} → {to_name} <br>
                             <span style="font-size: 12px; color: #666;">{status_emoji} {status_display}</span>
                         </div>
                         """, unsafe_allow_html=True)
